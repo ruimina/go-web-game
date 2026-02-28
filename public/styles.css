@@ -1,0 +1,150 @@
+:root {
+  --panel-bg: #faf6ea;
+  --panel-border: #d4c7a2;
+  --text-main: #2f2a1f;
+  --accent: #3f89a7;
+  --button-bg: #ead9ad;
+  --button-border: #b99856;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  font-family: "Noto Sans SC", "PingFang SC", "Microsoft YaHei", sans-serif;
+  color: var(--text-main);
+  background: linear-gradient(135deg, #f2e4bf 0%, #d8c288 100%);
+}
+
+.app-shell {
+  display: flex;
+  min-height: 100vh;
+}
+
+.control-panel {
+  width: 360px;
+  max-height: 100vh;
+  overflow-y: auto;
+  padding: 16px;
+  background: var(--panel-bg);
+  border-right: 1px solid var(--panel-border);
+}
+
+h1 {
+  margin: 0 0 8px;
+  font-size: 28px;
+}
+
+h2 {
+  margin: 0 0 10px;
+  font-size: 18px;
+}
+
+.panel-section {
+  border: 1px solid var(--panel-border);
+  border-radius: 10px;
+  padding: 12px;
+  margin-top: 10px;
+  background: #fffaf0;
+}
+
+label {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 14px;
+  margin-bottom: 8px;
+}
+
+input,
+select,
+button {
+  font-size: 14px;
+  border-radius: 8px;
+  border: 1px solid #bead88;
+  padding: 7px 10px;
+}
+
+button {
+  cursor: pointer;
+  background: var(--button-bg);
+  border-color: var(--button-border);
+  color: #32260f;
+  transition: transform 120ms ease, filter 120ms ease;
+}
+
+button:hover {
+  filter: brightness(1.06);
+}
+
+button:active {
+  transform: scale(0.98);
+}
+
+.button-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 8px 0;
+}
+
+.button-row input {
+  min-width: 120px;
+  flex: 1;
+}
+
+.board-stage {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 18px;
+}
+
+#board-canvas {
+  width: min(88vw, 940px);
+  height: min(88vh, 940px);
+  max-height: calc(100vh - 36px);
+  background: transparent;
+  border-radius: 14px;
+  box-shadow: 0 10px 26px rgba(60, 39, 7, 0.24);
+}
+
+.hint {
+  color: #5f573f;
+  font-size: 13px;
+  margin: 6px 0;
+}
+
+.room-info,
+.game-info,
+.status-text {
+  font-size: 14px;
+  line-height: 1.45;
+  white-space: pre-line;
+  border-radius: 8px;
+  background: #f8f1de;
+  border: 1px solid #dac89c;
+  padding: 8px;
+}
+
+@media (max-width: 1080px) {
+  .app-shell {
+    flex-direction: column;
+  }
+  .control-panel {
+    width: 100%;
+    max-height: none;
+    border-right: 0;
+    border-bottom: 1px solid var(--panel-border);
+  }
+  .board-stage {
+    padding: 10px;
+  }
+  #board-canvas {
+    width: min(95vw, 740px);
+    height: min(95vw, 740px);
+  }
+}

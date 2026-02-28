@@ -1,0 +1,19 @@
+# Track only files required to run this project on a cloud host.
+# Everything is ignored by default, then essential files are allowlisted.
+*
+
+# Keep this file.
+!.gitignore
+
+# Runtime entry + dependency manifest.
+!server.js
+!package.json
+!package-lock.json
+
+# Frontend assets.
+!public/
+!public/**
+
+# Shared game rules.
+!shared/
+!shared/**
