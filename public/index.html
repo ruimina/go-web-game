@@ -131,6 +131,9 @@
         <section class="panel-section">
           <h2>状态</h2>
           <div id="status-text" class="status-text">初始化中...</div>
+          <div class="button-row">
+            <button id="rules-btn" type="button">查看玩法规则</button>
+          </div>
           <p class="hint">快捷键：`f` 全屏切换。</p>
         </section>
       </aside>
@@ -139,6 +142,17 @@
         <canvas id="board-canvas" width="1000" height="1000"></canvas>
       </main>
     </div>
+
+    <div id="rules-modal" class="modal hidden" role="dialog" aria-modal="true" aria-label="玩法规则">
+      <div class="modal-panel">
+        <div class="modal-header">
+          <h2>玩法规则</h2>
+          <button id="close-rules-btn" type="button">关闭</button>
+        </div>
+        <pre id="rules-content" class="rules-content">加载中...</pre>
+      </div>
+    </div>
+
     <script type="module" src="/main.js"></script>
   </body>
 </html>

@@ -73,6 +73,11 @@ const ui = {
   saveMapBtn: document.querySelector("#save-map-btn"),
   editorHint: document.querySelector("#editor-hint"),
 
+  rulesBtn: document.querySelector("#rules-btn"),
+  rulesModal: document.querySelector("#rules-modal"),
+  closeRulesBtn: document.querySelector("#close-rules-btn"),
+  rulesContent: document.querySelector("#rules-content"),
+
   statusText: document.querySelector("#status-text"),
   canvas: document.querySelector("#board-canvas")
 };
@@ -122,8 +127,12 @@ const app = {
     id: null,
     gameType: null,
     color: null,
-    players: []
-  }
+    players: [],
+    hasStartedNotice: false,
+    hasEndedNotice: false
+  },
+
+  rulesTextCache: null
 };
 
 function pointKey(x, y) {
@@ -139,6 +148,28 @@ function setStatus(text) {
   ui.statusText.textContent = text;
 }
 
+async function openRulesModal() {
+  ui.rulesModal.classList.remove("hidden");
+  if (app.rulesTextCache) {
+    ui.rulesContent.textContent = app.rulesTextCache;
+    return;
+  }
+  ui.rulesContent.textContent = "加载中...";
+  try {
+    const resp = await fetch("/RULES.md", { cache: "no-store" });
+    if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+    const text = await resp.text();
+    app.rulesTextCache = text;
+    ui.rulesContent.textContent = text;
+  } catch (error) {
+    ui.rulesContent.textContent = `规则加载失败：${error.message}`;
+  }
+}
+
+function closeRulesModal() {
+  ui.rulesModal.classList.add("hidden");
+}
+
 function gameTypeLabel(gameType) {
   return gameType === GAME.XIANGQI ? "中国象棋" : "围棋";
 }
@@ -152,6 +183,27 @@ function sideLabel(gameType, side) {
   if (side === STONE.BLACK) return "黑";
   if (side === STONE.WHITE) return "白";
   return "-";
+}
+
+function showPopup(message) {
+  window.alert(message);
+}
+
+function showStartPopup(gameType) {
+  showPopup(`对手已加入，${gameTypeLabel(gameType)}对局开始！`);
+}
+
+function showEndPopup(gameType, winner, myColor) {
+  const winnerText = sideLabel(gameType, winner);
+  if (!myColor) {
+    showPopup(`对局结束，胜方：${winnerText}`);
+    return;
+  }
+  if (winner === myColor) {
+    showPopup(`对局结束：你获得胜利！`);
+  } else {
+    showPopup(`对局结束：你失败了。胜方：${winnerText}`);
+  }
 }
 
 function saveMapsToStorage() {
@@ -481,6 +533,8 @@ function handleWsMessage(data) {
     app.room.id = data.roomId;
     app.room.gameType = type;
     app.room.color = data.color;
+    app.room.hasStartedNotice = false;
+    app.room.hasEndedNotice = false;
     setCurrentState(data.state, type);
     updateRoomInfo();
     updateGameInfo();
@@ -500,6 +554,23 @@ function handleWsMessage(data) {
       setStatus("对局已结束。");
     } else {
       setStatus(`已同步对局，轮到 ${sideLabel(type, getCurrentState().turn)}。`);
+    }
+    return;
+  }
+
+  if (data.type === "game_start") {
+    if (app.mode === "network" && app.room.id === data.roomId && !app.room.hasStartedNotice) {
+      app.room.hasStartedNotice = true;
+      showStartPopup(data.gameType === GAME.XIANGQI ? GAME.XIANGQI : GAME.GO);
+    }
+    return;
+  }
+
+  if (data.type === "game_end") {
+    if (app.mode === "network" && app.room.id === data.roomId && !app.room.hasEndedNotice) {
+      app.room.hasEndedNotice = true;
+      const gameType = data.gameType === GAME.XIANGQI ? GAME.XIANGQI : GAME.GO;
+      showEndPopup(gameType, data.winner, app.room.color);
     }
     return;
   }
@@ -529,7 +600,7 @@ function joinRoom() {
 
 function leaveRoom() {
   sendWs("leave_room");
-  app.room = { id: null, gameType: null, color: null, players: [] };
+  app.room = { id: null, gameType: null, color: null, players: [], hasStartedNotice: false, hasEndedNotice: false };
   if (app.mode === "network") app.mode = "local";
   updateRoomInfo();
 }
@@ -1077,9 +1148,16 @@ function drawXqPiece(piece, x, y, metrics, selected) {
     ctx.strokeStyle = "#8f6217";
   } else {
     const g = ctx.createRadialGradient(cx - r * 0.26, cy - r * 0.32, r * 0.14, cx, cy, r);
-    g.addColorStop(0, "#fffdf6");
-    g.addColorStop(0.55, "#f0ddbd");
-    g.addColorStop(1, "#d4b17b");
+    if (piece.upgraded) {
+      g.addColorStop(0, "#fff8ff");
+      g.addColorStop(0.34, piece.team === XQ_TEAM.RED ? "#ff9bd5" : "#97b7ff");
+      g.addColorStop(0.68, "#76f3ff");
+      g.addColorStop(1, "#8f5fff");
+    } else {
+      g.addColorStop(0, "#fffdf6");
+      g.addColorStop(0.55, "#f0ddbd");
+      g.addColorStop(1, "#d4b17b");
+    }
     ctx.fillStyle = g;
     ctx.fill();
     ctx.strokeStyle = piece.team === XQ_TEAM.RED ? "#b12323" : "#242424";
@@ -1530,9 +1608,20 @@ function bindEvents() {
   });
 
   ui.canvas.addEventListener("click", handleBoardClick);
+  ui.rulesBtn.addEventListener("click", () => {
+    openRulesModal();
+  });
+  ui.closeRulesBtn.addEventListener("click", closeRulesModal);
+  ui.rulesModal.addEventListener("click", (event) => {
+    if (event.target === ui.rulesModal) closeRulesModal();
+  });
 
   window.addEventListener("resize", resizeCanvas);
   window.addEventListener("keydown", (event) => {
+    if (event.key === "Escape" && !ui.rulesModal.classList.contains("hidden")) {
+      closeRulesModal();
+      return;
+    }
     if (event.key.toLowerCase() !== "f") return;
     if (document.fullscreenElement) {
       document.exitFullscreen().catch(() => {});

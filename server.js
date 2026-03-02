@@ -52,6 +52,36 @@ function broadcast(room, type, payload = {}) {
   }
 }
 
+function sidesForGame(gameType) {
+  if (gameType === GAME.XIANGQI) {
+    return { first: XQ_TEAM.RED, second: XQ_TEAM.BLACK };
+  }
+  return { first: STONE.BLACK, second: STONE.WHITE };
+}
+
+function isRoomReadyToStart(room) {
+  const { first, second } = sidesForGame(room.gameType);
+  return room.clients.has(first) && room.clients.has(second);
+}
+
+function broadcastState(room) {
+  broadcast(room, "state_update", {
+    gameType: room.gameType,
+    state: room.state,
+    room: roomPublicInfo(room)
+  });
+}
+
+function broadcastGameEnd(room) {
+  broadcast(room, "game_end", {
+    gameType: room.gameType,
+    roomId: room.id,
+    winner: room.state.winner ?? null,
+    resignedBy: room.state.resignedBy ?? null,
+    state: room.state
+  });
+}
+
 function roomPublicInfo(room) {
   return {
     id: room.id,
@@ -174,8 +204,7 @@ function handleJoinRoom(ws, payload) {
     return;
   }
 
-  const first = room.gameType === GAME.XIANGQI ? XQ_TEAM.RED : STONE.BLACK;
-  const second = room.gameType === GAME.XIANGQI ? XQ_TEAM.BLACK : STONE.WHITE;
+  const { first, second } = sidesForGame(room.gameType);
 
   if (room.clients.has(first) && room.clients.has(second)) {
     emit(ws, "error", { message: "房间已满" });
@@ -195,6 +224,12 @@ function handleJoinRoom(ws, payload) {
     room: roomPublicInfo(room)
   });
   broadcast(room, "room_info", { room: roomPublicInfo(room) });
+  if (isRoomReadyToStart(room)) {
+    broadcast(room, "game_start", {
+      gameType: room.gameType,
+      roomId: room.id
+    });
+  }
 }
 
 function validateRoomTurn(ws, room) {
@@ -253,11 +288,8 @@ function handlePlayMove(ws, payload) {
   }
 
   room.state = result.state;
-  broadcast(room, "state_update", {
-    gameType: room.gameType,
-    state: room.state,
-    room: roomPublicInfo(room)
-  });
+  broadcastState(room);
+  if (room.state.gameOver) broadcastGameEnd(room);
 }
 
 function handlePass(ws) {
@@ -276,11 +308,8 @@ function handlePass(ws) {
   }
 
   room.state = result.state;
-  broadcast(room, "state_update", {
-    gameType: room.gameType,
-    state: room.state,
-    room: roomPublicInfo(room)
-  });
+  broadcastState(room);
+  if (room.state.gameOver) broadcastGameEnd(room);
 }
 
 function handleResign(ws) {
@@ -294,11 +323,8 @@ function handleResign(ws) {
   }
 
   room.state = result.state;
-  broadcast(room, "state_update", {
-    gameType: room.gameType,
-    state: room.state,
-    room: roomPublicInfo(room)
-  });
+  broadcastState(room);
+  if (room.state.gameOver) broadcastGameEnd(room);
 }
 
 wss.on("connection", (ws) => {

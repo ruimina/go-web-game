@@ -158,6 +158,49 @@ button:active {
   padding: 8px;
 }
 
+.modal {
+  position: fixed;
+  inset: 0;
+  z-index: 40;
+  background: rgba(24, 17, 7, 0.52);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+}
+
+.modal-panel {
+  width: min(900px, 92vw);
+  max-height: 86vh;
+  background: #fff8e8;
+  border: 1px solid #c9ab6f;
+  border-radius: 12px;
+  box-shadow: 0 16px 36px rgba(0, 0, 0, 0.28);
+  display: flex;
+  flex-direction: column;
+}
+
+.modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 12px;
+  border-bottom: 1px solid #e0c995;
+}
+
+.modal-header h2 {
+  margin: 0;
+}
+
+.rules-content {
+  margin: 0;
+  padding: 14px;
+  overflow: auto;
+  white-space: pre-wrap;
+  font-size: 14px;
+  line-height: 1.6;
+}
+
 @media (max-width: 1080px) {
   .app-shell {
     flex-direction: column;
