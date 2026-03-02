@@ -4,6 +4,7 @@
 
 # Keep this file.
 !.gitignore
+!README.md
 
 # Runtime entry + dependency manifest.
 !server.js
