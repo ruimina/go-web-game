@@ -107,6 +107,8 @@ PORT=8080 npm start
 3. `npm start`（建议配合 `pm2`/`systemd`）
 4. 放行端口（推荐 `80/443` + Nginx 反代到 Node 服务）
 
+详细步骤见：[DEPLOY_ECS_NGINX.md](./DEPLOY_ECS_NGINX.md)
+
 ## 项目结构
 
 ```text

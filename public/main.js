@@ -9,7 +9,7 @@ import {
   playMove,
   resignGame,
   scoreGame
-} from "/shared/go-rules.js";
+} from "./shared/go-rules.js";
 import {
   XQ_TEAM,
   XQ_PIECE,
@@ -20,7 +20,7 @@ import {
   collectFuPoints,
   generateRandomFuPoints,
   isXiangqiInCheck
-} from "/shared/xiangqi-rules.js";
+} from "./shared/xiangqi-rules.js";
 
 const GAME = Object.freeze({
   GO: "go",
@@ -156,7 +156,7 @@ async function openRulesModal() {
   }
   ui.rulesContent.textContent = "加载中...";
   try {
-    const resp = await fetch("/RULES.md", { cache: "no-store" });
+    const resp = await fetch("./RULES.md", { cache: "no-store" });
     if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
     const text = await resp.text();
     app.rulesTextCache = text;
@@ -460,7 +460,9 @@ function startLocalGame() {
 
 function getWsUrl() {
   const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
-  return `${protocol}//${window.location.host}/ws`;
+  const baseDirPath = new URL("./", window.location.href).pathname;
+  const basePath = baseDirPath.endsWith("/") ? baseDirPath.slice(0, -1) : baseDirPath;
+  return `${protocol}//${window.location.host}${basePath}/ws`;
 }
 
 function connectWs() {

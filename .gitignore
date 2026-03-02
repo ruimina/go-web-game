@@ -5,6 +5,7 @@
 # Keep this file.
 !.gitignore
 !README.md
+!DEPLOY_ECS_NGINX.md
 
 # Runtime entry + dependency manifest.
 !server.js

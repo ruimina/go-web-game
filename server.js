@@ -24,20 +24,51 @@ const GAME = Object.freeze({
   XIANGQI: "xiangqi"
 });
 
+function normalizeBasePath(input) {
+  const raw = String(input ?? "").trim();
+  if (!raw || raw === "/") return "";
+  const normalized = raw.startsWith("/") ? raw : `/${raw}`;
+  return normalized.replace(/\/+$/, "");
+}
+
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 const app = express();
 const httpServer = createServer(app);
-const wss = new WebSocketServer({ server: httpServer, path: "/ws" });
-
 const rooms = new Map();
-const PORT = Number(process.env.PORT ?? 5173);
+const PORT = Number(process.env.PORT ?? 3001);
+const BASE_PATH = normalizeBasePath(process.env.BASE_PATH ?? "/games/go");
+const STATIC_PATH = BASE_PATH || "/";
+const SHARED_PATH = BASE_PATH ? `${BASE_PATH}/shared` : "/shared";
+const WS_PATH = `${BASE_PATH}/ws`;
 
-app.use(express.static(path.join(__dirname, "public")));
-app.use("/shared", express.static(path.join(__dirname, "shared")));
+const wss = new WebSocketServer({ server: httpServer, path: WS_PATH });
 
-app.get("/health", (_req, res) => {
+app.use(STATIC_PATH, express.static(path.join(__dirname, "public")));
+app.use(SHARED_PATH, express.static(path.join(__dirname, "shared")));
+
+if (BASE_PATH) {
+  app.get(BASE_PATH, (_req, res) => {
+    res.redirect(302, `${BASE_PATH}/`);
+  });
+}
+
+app.get(BASE_PATH ? `${BASE_PATH}/health` : "/health", (_req, res) => {
+  res.json({ ok: true, rooms: rooms.size, basePath: BASE_PATH || "/" });
+});
+
+if (BASE_PATH) {
+  app.get("/health", (_req, res) => {
+    res.json({ ok: true, rooms: rooms.size, basePath: BASE_PATH || "/" });
+  });
+}
+
+app.get("/", (_req, res) => {
+  if (BASE_PATH) {
+    res.redirect(302, `${BASE_PATH}/`);
+    return;
+  }
   res.json({ ok: true, rooms: rooms.size });
 });
 
@@ -371,5 +402,6 @@ wss.on("connection", (ws) => {
 });
 
 httpServer.listen(PORT, () => {
-  console.log(`Board game server listening on http://localhost:${PORT}`);
+  console.log(`Board game server listening on http://localhost:${PORT}${BASE_PATH || "/"}`);
+  console.log(`WebSocket endpoint ws://localhost:${PORT}${WS_PATH}`);
 });
