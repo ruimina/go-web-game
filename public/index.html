@@ -3,83 +3,112 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>围棋水潭地图对弈</title>
+    <title>棋盘对战：围棋 + 中国象棋</title>
     <link rel="stylesheet" href="/styles.css" />
   </head>
   <body>
     <div class="app-shell">
       <aside class="control-panel">
-        <h1>围棋水潭对弈</h1>
-        <p class="hint">支持中国规则、本地自我对弈、网页房间对战、地图编辑保存读取。</p>
+        <h1>棋盘对战中心</h1>
+        <p class="hint">支持围棋（含水潭）与中国象棋（含符与升级）的本地自我对弈与网页联机。</p>
+
+        <section class="panel-section">
+          <h2>游戏类型</h2>
+          <div class="tab-row">
+            <button id="game-tab-go" class="tab-btn active" type="button">围棋</button>
+            <button id="game-tab-xiangqi" class="tab-btn" type="button">中国象棋</button>
+          </div>
+        </section>
 
         <section class="panel-section">
           <h2>对局配置</h2>
-          <label>
-            棋盘大小
-            <input id="board-size-input" type="number" min="5" max="25" value="19" />
-          </label>
-          <label>
-            Komi（贴目）
-            <input id="komi-input" type="number" min="0" step="0.5" value="7.5" />
-          </label>
-          <label>
-            随机不可达区域数量
-            <input id="region-count-input" type="number" min="0" max="20" value="2" />
-          </label>
-          <label>
-            默认区域大小
-            <input id="region-default-size-input" type="number" min="1" max="100" value="5" />
-          </label>
-          <label>
-            区域大小列表（逗号分隔，优先）
-            <input id="region-sizes-input" type="text" value="4,7" placeholder="例如: 3,5,8" />
-          </label>
-          <label>
-            使用已保存地图（可选）
-            <select id="map-select">
-              <option value="">不使用（按上方随机配置）</option>
-            </select>
-          </label>
+
+          <div id="go-config-panel" class="game-config-panel">
+            <label>
+              棋盘大小
+              <input id="board-size-input" type="number" min="5" max="25" value="19" />
+            </label>
+            <label>
+              Komi（贴目）
+              <input id="komi-input" type="number" min="0" step="0.5" value="7.5" />
+            </label>
+            <label>
+              随机不可达区域数量
+              <input id="region-count-input" type="number" min="0" max="20" value="2" />
+            </label>
+            <label>
+              默认区域大小
+              <input id="region-default-size-input" type="number" min="1" max="100" value="5" />
+            </label>
+            <label>
+              区域大小列表（逗号分隔，优先）
+              <input id="region-sizes-input" type="text" value="4,7" placeholder="例如: 3,5,8" />
+            </label>
+            <label>
+              使用已保存围棋地图（可选）
+              <select id="go-map-select">
+                <option value="">不使用（按上方随机配置）</option>
+              </select>
+            </label>
+          </div>
+
+          <div id="xiangqi-config-panel" class="game-config-panel hidden">
+            <label>
+              随机“符”数量（可选）
+              <input id="xq-fu-count-input" type="number" min="0" max="30" value="4" />
+            </label>
+            <label>
+              使用已保存象棋地图（可选）
+              <select id="xq-map-select">
+                <option value="">不使用（按上方随机符数量）</option>
+              </select>
+            </label>
+            <p class="hint">象棋固定标准 9x10 棋盘，地图仅配置“符”的位置。</p>
+          </div>
+
           <div class="button-row">
-            <button id="start-local-btn">开始自我对弈</button>
-            <button id="open-editor-btn">打开地图编辑器</button>
+            <button id="start-local-btn" type="button">开始自我对弈</button>
+            <button id="open-editor-btn" type="button">打开地图编辑器</button>
           </div>
         </section>
 
         <section class="panel-section">
           <h2>网页对战</h2>
           <div class="button-row">
-            <button id="create-room-btn">创建房间</button>
+            <button id="create-room-btn" type="button">创建房间</button>
             <input id="join-room-input" type="text" placeholder="输入房间码" maxlength="10" />
-            <button id="join-room-btn">加入房间</button>
+            <button id="join-room-btn" type="button">加入房间</button>
           </div>
           <div class="room-info">
             <div>房间: <span id="room-id-text">-</span></div>
-            <div>执子: <span id="my-color-text">-</span></div>
+            <div>游戏: <span id="room-game-type-text">-</span></div>
+            <div>执方: <span id="my-color-text">-</span></div>
             <div>在线: <span id="room-players-text">-</span></div>
           </div>
-          <button id="leave-room-btn">离开房间</button>
+          <button id="leave-room-btn" type="button">离开房间</button>
         </section>
 
         <section class="panel-section">
           <h2>对局操作</h2>
           <div class="button-row">
-            <button id="pass-btn">停一手</button>
-            <button id="resign-btn">认输</button>
-            <button id="score-btn">计算形势</button>
+            <button id="pass-btn" type="button">停一手（围棋）</button>
+            <button id="resign-btn" type="button">认输</button>
+            <button id="score-btn" type="button">计算形势（围棋）</button>
           </div>
           <div id="game-info" class="game-info"></div>
         </section>
 
         <section class="panel-section">
           <h2>地图编辑器</h2>
-          <label>
-            编辑棋盘大小
-            <input id="editor-size-input" type="number" min="5" max="25" value="19" />
-          </label>
-          <div class="button-row">
-            <button id="apply-editor-size-btn">应用大小</button>
-            <button id="clear-editor-btn">清空水潭点</button>
+          <div id="editor-size-row">
+            <label>
+              编辑棋盘大小（围棋）
+              <input id="editor-size-input" type="number" min="5" max="25" value="19" />
+            </label>
+            <div class="button-row">
+              <button id="apply-editor-size-btn" type="button">应用大小</button>
+              <button id="clear-editor-btn" type="button">清空编辑点</button>
+            </div>
           </div>
           <label>
             读取地图
@@ -88,15 +117,15 @@
             </select>
           </label>
           <div class="button-row">
-            <button id="load-map-btn">加载到编辑器</button>
-            <button id="delete-map-btn">删除地图</button>
+            <button id="load-map-btn" type="button">加载到编辑器</button>
+            <button id="delete-map-btn" type="button">删除地图</button>
           </div>
           <label>
             地图名称
-            <input id="map-name-input" type="text" placeholder="例如：新年水潭图" />
+            <input id="map-name-input" type="text" placeholder="例如：春节符阵图" />
           </label>
-          <button id="save-map-btn">保存地图</button>
-          <p class="hint">编辑器模式下点击棋盘交叉点可切换为水潭点。</p>
+          <button id="save-map-btn" type="button">保存地图</button>
+          <p id="editor-hint" class="hint">围棋编辑器模式：点击交叉点切换水潭点。</p>
         </section>
 
         <section class="panel-section">
@@ -107,7 +136,7 @@
       </aside>
 
       <main class="board-stage">
-        <canvas id="board-canvas" width="900" height="900"></canvas>
+        <canvas id="board-canvas" width="1000" height="1000"></canvas>
       </main>
     </div>
     <script type="module" src="/main.js"></script>
