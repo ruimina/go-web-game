@@ -4,7 +4,10 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "start": "node server.js"
+    "start": "node server.js",
+    "chrome:codex:login": "node scripts/open-codex-chrome.mjs",
+    "chrome:codex:check": "node scripts/check-codex-profile.mjs",
+    "chrome:codex:google": "node scripts/check-codex-profile.mjs https://www.google.com"
   },
   "dependencies": {
     "express": "^5.1.0",

@@ -7,21 +7,190 @@
     <link rel="stylesheet" href="./styles.css" />
   </head>
   <body>
-    <div class="app-shell">
-      <aside class="control-panel">
-        <h1>棋盘对战中心</h1>
-        <p class="hint">支持围棋（含水潭）与中国象棋（含符与升级）的本地自我对弈与网页联机。</p>
+    <div class="page-chrome"></div>
 
-        <section class="panel-section">
-          <h2>游戏类型</h2>
-          <div class="tab-row">
+    <div class="app-shell">
+      <header class="topbar panel-surface">
+        <div class="brand-block">
+          <p class="eyebrow">Board Battle Hub</p>
+          <h1>棋盘对战中心</h1>
+          <p class="brand-copy">围棋水潭地图与象棋符升级玩法共用同一套对战大厅，支持本地练习与网页联机。</p>
+        </div>
+
+        <div class="topbar-controls">
+          <div class="game-switch">
             <button id="game-tab-go" class="tab-btn active" type="button">围棋</button>
             <button id="game-tab-xiangqi" class="tab-btn" type="button">中国象棋</button>
           </div>
+
+          <div class="topbar-actions">
+            <button id="start-local-btn" class="primary-btn" type="button">快速开局</button>
+            <button id="open-settings-btn" type="button">对局菜单</button>
+            <button id="rules-btn" type="button">玩法规则</button>
+          </div>
+        </div>
+      </header>
+
+      <div class="experience-grid">
+        <section class="stage-column">
+          <div class="stage-overview panel-surface">
+            <div class="badge-row">
+              <span id="active-game-badge" class="status-chip">围棋</span>
+              <span id="active-mode-badge" class="status-chip subtle">本地练习</span>
+              <span id="active-turn-badge" class="status-chip accent">等待开局</span>
+            </div>
+            <div class="overview-copy">
+              <h2 id="headline-title">围棋对战台</h2>
+              <p id="headline-subtitle">优先显示棋盘与关键回合信息，复杂配置收纳在对局菜单中。</p>
+            </div>
+          </div>
+
+          <main class="board-stage panel-surface">
+            <div class="board-stage-inner">
+              <canvas id="board-canvas" width="1000" height="1000"></canvas>
+            </div>
+          </main>
         </section>
 
-        <section class="panel-section">
-          <h2>对局配置</h2>
+        <aside class="side-rail">
+          <section class="panel-surface room-panel">
+            <div class="section-heading">
+              <div>
+                <p class="section-kicker">Online Match</p>
+                <h2>联机大厅</h2>
+              </div>
+              <span id="connection-badge" class="connection-pill">连接中</span>
+            </div>
+
+            <div class="room-hero">
+              <div>
+                <p class="meta-label">房间码</p>
+                <div id="room-id-text" class="room-code">-</div>
+              </div>
+              <div class="meta-grid">
+                <div class="meta-card">
+                  <span>游戏</span>
+                  <strong id="room-game-type-text">-</strong>
+                </div>
+                <div class="meta-card">
+                  <span>执方</span>
+                  <strong id="my-color-text">-</strong>
+                </div>
+                <div class="meta-card">
+                  <span>在线</span>
+                  <strong id="room-players-text">-</strong>
+                </div>
+              </div>
+            </div>
+
+            <div class="button-row compact">
+              <button id="create-room-btn" class="primary-btn" type="button">创建房间</button>
+              <button id="leave-room-btn" type="button">离开房间</button>
+            </div>
+
+            <div id="room-status-banner" class="room-status-banner">未进入房间，可创建或加入房间开始网页对战。</div>
+
+            <div class="button-row compact current-room-actions">
+              <button id="ready-btn" class="primary-btn" type="button">准备</button>
+            </div>
+
+            <div class="room-list-panel">
+              <div class="subsection-heading">
+                <h3>房间大厅</h3>
+                <span id="room-list-count-text">0 个</span>
+              </div>
+              <div id="room-list" class="room-list"></div>
+            </div>
+
+            <div class="presence-list">
+              <article id="player-slot-1" class="player-slot">
+                <div>
+                  <p id="player-slot-1-label" class="player-side">黑方席位</p>
+                  <p id="player-slot-1-note" class="player-note">等待玩家</p>
+                </div>
+                <div class="player-slot-actions">
+                  <button id="player-slot-1-action" type="button">选择</button>
+                  <span id="player-slot-1-state" class="player-state offline">离线</span>
+                </div>
+              </article>
+
+              <article id="player-slot-2" class="player-slot">
+                <div>
+                  <p id="player-slot-2-label" class="player-side">白方席位</p>
+                  <p id="player-slot-2-note" class="player-note">等待玩家</p>
+                </div>
+                <div class="player-slot-actions">
+                  <button id="player-slot-2-action" type="button">选择</button>
+                  <span id="player-slot-2-state" class="player-state offline">离线</span>
+                </div>
+              </article>
+            </div>
+          </section>
+
+          <section class="panel-surface command-panel">
+            <div class="section-heading">
+              <div>
+                <p class="section-kicker">Match Console</p>
+                <h2>对局面板</h2>
+              </div>
+              <button id="open-editor-btn" type="button">地图工坊</button>
+            </div>
+
+            <div class="summary-grid">
+              <div class="summary-card">
+                <span>当前模式</span>
+                <strong id="mode-indicator-text">本地练习</strong>
+              </div>
+              <div class="summary-card">
+                <span>对局阶段</span>
+                <strong id="phase-indicator-text">等待开局</strong>
+              </div>
+              <div class="summary-card">
+                <span>当前回合</span>
+                <strong id="turn-indicator-text">-</strong>
+              </div>
+              <div class="summary-card">
+                <span>菜单入口</span>
+                <strong>对局菜单</strong>
+              </div>
+            </div>
+
+            <div class="button-grid">
+              <button id="pass-btn" type="button">停一手（围棋）</button>
+              <button id="resign-btn" class="danger-btn" type="button">认输</button>
+              <button id="score-btn" type="button">计算形势（围棋）</button>
+            </div>
+
+            <div id="game-info" class="game-info"></div>
+            <div id="status-text" class="status-text">初始化中...</div>
+            <p class="hint">复杂开局参数、地图编辑与地图存档已收纳到“对局菜单”中。快捷键：`f` 全屏切换。</p>
+          </section>
+        </aside>
+      </div>
+    </div>
+
+    <div id="toast-stack" class="toast-stack" aria-live="polite" aria-atomic="true"></div>
+
+    <div id="settings-modal" class="modal hidden" role="dialog" aria-modal="true" aria-label="对局菜单">
+      <div class="modal-panel settings-panel">
+        <div class="modal-header">
+          <div>
+            <p class="section-kicker">Setup & Workshop</p>
+            <h2>对局菜单</h2>
+          </div>
+          <button id="close-settings-btn" type="button">关闭</button>
+        </div>
+
+        <div class="menu-tab-row">
+          <button id="menu-tab-setup" class="menu-tab active" type="button">开局设置</button>
+          <button id="menu-tab-editor" class="menu-tab" type="button">地图工坊</button>
+        </div>
+
+        <div id="menu-panel-setup" class="menu-panel">
+          <div class="menu-intro">
+            <h3>开局配置</h3>
+            <p>在这里调整棋盘、贴目、随机区域、符数量和地图模板。配置会保留在当前页面，关闭后可直接点击顶部“快速开局”。</p>
+          </div>
 
           <div id="go-config-panel" class="game-config-panel">
             <label>
@@ -65,88 +234,59 @@
             </label>
             <p class="hint">象棋固定标准 9x10 棋盘，地图仅配置“符”的位置。</p>
           </div>
+        </div>
 
-          <div class="button-row">
-            <button id="start-local-btn" type="button">开始自我对弈</button>
-            <button id="open-editor-btn" type="button">打开地图编辑器</button>
+        <div id="menu-panel-editor" class="menu-panel hidden">
+          <div class="menu-intro">
+            <h3>地图工坊</h3>
+            <p>进入编辑模式后直接在棋盘上点选地形或“符”，这里负责尺寸、读取和存档管理。</p>
           </div>
-        </section>
 
-        <section class="panel-section">
-          <h2>网页对战</h2>
-          <div class="button-row">
-            <button id="create-room-btn" type="button">创建房间</button>
-            <input id="join-room-input" type="text" placeholder="输入房间码" maxlength="10" />
-            <button id="join-room-btn" type="button">加入房间</button>
-          </div>
-          <div class="room-info">
-            <div>房间: <span id="room-id-text">-</span></div>
-            <div>游戏: <span id="room-game-type-text">-</span></div>
-            <div>执方: <span id="my-color-text">-</span></div>
-            <div>在线: <span id="room-players-text">-</span></div>
-          </div>
-          <button id="leave-room-btn" type="button">离开房间</button>
-        </section>
-
-        <section class="panel-section">
-          <h2>对局操作</h2>
-          <div class="button-row">
-            <button id="pass-btn" type="button">停一手（围棋）</button>
-            <button id="resign-btn" type="button">认输</button>
-            <button id="score-btn" type="button">计算形势（围棋）</button>
-          </div>
-          <div id="game-info" class="game-info"></div>
-        </section>
-
-        <section class="panel-section">
-          <h2>地图编辑器</h2>
           <div id="editor-size-row">
             <label>
               编辑棋盘大小（围棋）
               <input id="editor-size-input" type="number" min="5" max="25" value="19" />
             </label>
-            <div class="button-row">
+            <div class="button-row compact">
               <button id="apply-editor-size-btn" type="button">应用大小</button>
               <button id="clear-editor-btn" type="button">清空编辑点</button>
             </div>
           </div>
+
           <label>
             读取地图
             <select id="editor-map-select">
               <option value="">选择地图</option>
             </select>
           </label>
-          <div class="button-row">
+
+          <div class="button-row compact">
             <button id="load-map-btn" type="button">加载到编辑器</button>
             <button id="delete-map-btn" type="button">删除地图</button>
           </div>
+
           <label>
             地图名称
             <input id="map-name-input" type="text" placeholder="例如：春节符阵图" />
           </label>
-          <button id="save-map-btn" type="button">保存地图</button>
-          <p id="editor-hint" class="hint">围棋编辑器模式：点击交叉点切换水潭点。</p>
-        </section>
 
-        <section class="panel-section">
-          <h2>状态</h2>
-          <div id="status-text" class="status-text">初始化中...</div>
-          <div class="button-row">
-            <button id="rules-btn" type="button">查看玩法规则</button>
+          <div class="button-row compact">
+            <button id="save-map-btn" type="button">保存地图</button>
+            <button id="enter-editor-btn" class="primary-btn" type="button">进入编辑模式</button>
           </div>
-          <p class="hint">快捷键：`f` 全屏切换。</p>
-        </section>
-      </aside>
 
-      <main class="board-stage">
-        <canvas id="board-canvas" width="1000" height="1000"></canvas>
-      </main>
+          <p id="editor-hint" class="hint">围棋编辑器模式：点击交叉点切换水潭点。</p>
+        </div>
+      </div>
     </div>
 
     <div id="rules-modal" class="modal hidden" role="dialog" aria-modal="true" aria-label="玩法规则">
       <div class="modal-panel">
         <div class="modal-header">
-          <h2>玩法规则</h2>
+          <div>
+            <p class="section-kicker">Rules Reference</p>
+            <h2>玩法规则</h2>
+          </div>
           <button id="close-rules-btn" type="button">关闭</button>
         </div>
         <pre id="rules-content" class="rules-content">加载中...</pre>

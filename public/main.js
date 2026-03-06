@@ -28,10 +28,16 @@ const GAME = Object.freeze({
 });
 
 const MAP_STORAGE_KEY = "board_game_maps_v2";
+const ACTIVE_ROOM_SESSION_KEY = "board_game_active_room_session_v1";
 
 const ui = {
   gameTabGo: document.querySelector("#game-tab-go"),
   gameTabXiangqi: document.querySelector("#game-tab-xiangqi"),
+  activeGameBadge: document.querySelector("#active-game-badge"),
+  activeModeBadge: document.querySelector("#active-mode-badge"),
+  activeTurnBadge: document.querySelector("#active-turn-badge"),
+  headlineTitle: document.querySelector("#headline-title"),
+  headlineSubtitle: document.querySelector("#headline-subtitle"),
   goConfigPanel: document.querySelector("#go-config-panel"),
   xqConfigPanel: document.querySelector("#xiangqi-config-panel"),
 
@@ -46,20 +52,44 @@ const ui = {
   xqMapSelect: document.querySelector("#xq-map-select"),
 
   startLocalBtn: document.querySelector("#start-local-btn"),
+  openSettingsBtn: document.querySelector("#open-settings-btn"),
   openEditorBtn: document.querySelector("#open-editor-btn"),
+  enterEditorBtn: document.querySelector("#enter-editor-btn"),
+  settingsModal: document.querySelector("#settings-modal"),
+  closeSettingsBtn: document.querySelector("#close-settings-btn"),
+  menuTabSetup: document.querySelector("#menu-tab-setup"),
+  menuTabEditor: document.querySelector("#menu-tab-editor"),
+  menuPanelSetup: document.querySelector("#menu-panel-setup"),
+  menuPanelEditor: document.querySelector("#menu-panel-editor"),
 
   createRoomBtn: document.querySelector("#create-room-btn"),
-  joinRoomInput: document.querySelector("#join-room-input"),
-  joinRoomBtn: document.querySelector("#join-room-btn"),
   leaveRoomBtn: document.querySelector("#leave-room-btn"),
+  roomListCountText: document.querySelector("#room-list-count-text"),
+  roomList: document.querySelector("#room-list"),
+  connectionBadge: document.querySelector("#connection-badge"),
+  roomStatusBanner: document.querySelector("#room-status-banner"),
   roomIdText: document.querySelector("#room-id-text"),
   roomGameTypeText: document.querySelector("#room-game-type-text"),
   myColorText: document.querySelector("#my-color-text"),
   roomPlayersText: document.querySelector("#room-players-text"),
+  playerSlot1: document.querySelector("#player-slot-1"),
+  playerSlot1Label: document.querySelector("#player-slot-1-label"),
+  playerSlot1Note: document.querySelector("#player-slot-1-note"),
+  playerSlot1State: document.querySelector("#player-slot-1-state"),
+  playerSlot1Action: document.querySelector("#player-slot-1-action"),
+  playerSlot2: document.querySelector("#player-slot-2"),
+  playerSlot2Label: document.querySelector("#player-slot-2-label"),
+  playerSlot2Note: document.querySelector("#player-slot-2-note"),
+  playerSlot2State: document.querySelector("#player-slot-2-state"),
+  playerSlot2Action: document.querySelector("#player-slot-2-action"),
 
+  readyBtn: document.querySelector("#ready-btn"),
   passBtn: document.querySelector("#pass-btn"),
   resignBtn: document.querySelector("#resign-btn"),
   scoreBtn: document.querySelector("#score-btn"),
+  modeIndicatorText: document.querySelector("#mode-indicator-text"),
+  phaseIndicatorText: document.querySelector("#phase-indicator-text"),
+  turnIndicatorText: document.querySelector("#turn-indicator-text"),
   gameInfo: document.querySelector("#game-info"),
 
   editorSizeRow: document.querySelector("#editor-size-row"),
@@ -79,6 +109,7 @@ const ui = {
   rulesContent: document.querySelector("#rules-content"),
 
   statusText: document.querySelector("#status-text"),
+  toastStack: document.querySelector("#toast-stack"),
   canvas: document.querySelector("#board-canvas")
 };
 
@@ -121,19 +152,33 @@ const app = {
 
   ws: null,
   wsReady: false,
+  connectionState: "connecting",
   reconnectTimer: null,
 
-  room: {
+  room: createEmptyRoomState(),
+
+  rulesTextCache: null,
+  menuPanel: "setup"
+};
+
+function createEmptyRoomState(list = []) {
+  return {
     id: null,
     gameType: null,
     color: null,
+    playerToken: null,
     players: [],
+    slots: [],
+    stage: "idle",
+    readyCount: 0,
+    hasAnyReady: false,
+    canEdit: true,
+    canSwap: true,
+    list,
     hasStartedNotice: false,
     hasEndedNotice: false
-  },
-
-  rulesTextCache: null
-};
+  };
+}
 
 function pointKey(x, y) {
   return `${x},${y}`;
@@ -146,6 +191,64 @@ function parsePointKey(key) {
 
 function setStatus(text) {
   ui.statusText.textContent = text;
+}
+
+function loadActiveRoomSession() {
+  try {
+    const raw = localStorage.getItem(ACTIVE_ROOM_SESSION_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw);
+    const roomId = String(parsed?.roomId ?? "").trim().toUpperCase();
+    const playerToken = String(parsed?.playerToken ?? "").trim();
+    if (!roomId || !playerToken) return null;
+    return { roomId, playerToken };
+  } catch (_err) {
+    return null;
+  }
+}
+
+function saveActiveRoomSession(roomId, playerToken) {
+  if (!roomId || !playerToken) return;
+  try {
+    localStorage.setItem(
+      ACTIVE_ROOM_SESSION_KEY,
+      JSON.stringify({
+        roomId: String(roomId).trim().toUpperCase(),
+        playerToken: String(playerToken).trim()
+      })
+    );
+  } catch (_err) {}
+}
+
+function clearActiveRoomSession(roomId = null) {
+  const saved = loadActiveRoomSession();
+  if (!saved) return;
+  if (roomId && saved.roomId !== String(roomId).trim().toUpperCase()) return;
+  try {
+    localStorage.removeItem(ACTIVE_ROOM_SESSION_KEY);
+  } catch (_err) {}
+}
+
+function rememberRoomSession(roomId, playerToken) {
+  if (!roomId || !playerToken) return;
+  app.room.playerToken = playerToken;
+  saveActiveRoomSession(roomId, playerToken);
+}
+
+function openSettingsModal() {
+  ui.settingsModal.classList.remove("hidden");
+}
+
+function closeSettingsModal() {
+  ui.settingsModal.classList.add("hidden");
+}
+
+function switchMenuPanel(panel) {
+  app.menuPanel = panel === "editor" ? "editor" : "setup";
+  ui.menuTabSetup.classList.toggle("active", app.menuPanel === "setup");
+  ui.menuTabEditor.classList.toggle("active", app.menuPanel === "editor");
+  ui.menuPanelSetup.classList.toggle("hidden", app.menuPanel !== "setup");
+  ui.menuPanelEditor.classList.toggle("hidden", app.menuPanel !== "editor");
 }
 
 async function openRulesModal() {
@@ -174,6 +277,18 @@ function gameTypeLabel(gameType) {
   return gameType === GAME.XIANGQI ? "中国象棋" : "围棋";
 }
 
+function gameModeLabel(mode) {
+  if (mode === "network") return "网页对战";
+  if (mode === "editor") return "地图编辑";
+  return "本地练习";
+}
+
+function roomStageLabel(stage) {
+  if (stage === "playing") return "对战中";
+  if (stage === "lobby") return "房间布阵";
+  return "等待开局";
+}
+
 function sideLabel(gameType, side) {
   if (gameType === GAME.XIANGQI) {
     if (side === XQ_TEAM.RED) return "红方";
@@ -185,8 +300,273 @@ function sideLabel(gameType, side) {
   return "-";
 }
 
+function sideList(gameType) {
+  return gameType === GAME.XIANGQI ? [XQ_TEAM.RED, XQ_TEAM.BLACK] : [STONE.BLACK, STONE.WHITE];
+}
+
+function getRoomSlots() {
+  const gameType = app.room.gameType ?? app.gameType;
+  const slotsFromServer = Array.isArray(app.room.slots) && app.room.slots.length === 2 ? app.room.slots : null;
+  if (slotsFromServer) {
+    return slotsFromServer.map((slot) => ({
+      side: slot.side,
+      online: Boolean(slot.online),
+      ready: Boolean(slot.ready)
+    }));
+  }
+  return sideList(gameType).map((side) => ({
+    side,
+    online: app.room.players.includes(side),
+    ready: false
+  }));
+}
+
+function currentTurnLabel() {
+  if (app.mode === "editor") return "编辑中";
+  if (isNetworkLobby()) return "等待准备";
+  const state = getCurrentState();
+  if (!state) return "等待开局";
+  return sideLabel(app.gameType, state.turn);
+}
+
+function currentPhaseLabel() {
+  const state = getCurrentState();
+  if (app.mode === "editor") return "地图编辑中";
+  if (isNetworkLobby()) {
+    return roomEditLocked() ? "已锁定布阵" : "房间布阵中";
+  }
+  if (!state) return "等待开局";
+  if (state.gameOver) return "对局结束";
+  if (app.mode === "network" && app.room.id) {
+    return state.turn === app.room.color ? "轮到你行动" : "等待对手操作";
+  }
+  return "对局进行中";
+}
+
+function roomBannerText() {
+  const state = getCurrentState();
+  if (app.connectionState !== "online") {
+    return app.room.id
+      ? `房间 ${app.room.id} 连接中断，系统会自动重连；若恢复失败，可在大厅继续之前的棋局。`
+      : "联机连接断开，系统会自动重连。";
+  }
+  if (!app.room.id) {
+    return "未进入房间，可直接从下方房间列表点击加入。";
+  }
+
+  const slots = getRoomSlots();
+  const onlineCount = slots.filter((slot) => slot.online).length;
+  if (onlineCount < slots.length) {
+    const missing = slots.find((slot) => !slot.online);
+    return `房间 ${app.room.id} 已建立，等待 ${sideLabel(app.room.gameType ?? app.gameType, missing?.side)} 玩家加入。`;
+  }
+
+  if (app.room.stage === "lobby") {
+    if (app.room.hasAnyReady) {
+      return `房间 ${app.room.id} 已有人准备，当前不能换位置或编辑棋盘。`;
+    }
+    return `房间 ${app.room.id} 布阵阶段：先选边、同步棋盘，然后双方准备开始。`;
+  }
+
+  if (!state) {
+    return `房间 ${app.room.id} 已满员，等待局面同步。`;
+  }
+  if (state.gameOver) {
+    return `房间 ${app.room.id} 对局已结束，可继续复盘或重新开房。`;
+  }
+  if (state.turn === app.room.color) {
+    return `房间 ${app.room.id} 轮到你行动。`;
+  }
+  return `房间 ${app.room.id} 轮到对手行动。`;
+}
+
+function isNetworkLobby() {
+  return app.mode === "network" && app.room.id && app.room.stage === "lobby";
+}
+
+function roomEditLocked() {
+  return isNetworkLobby() && app.room.hasAnyReady;
+}
+
+function syncEditorFromRoomConfig(config, gameType) {
+  if (!config) return;
+  app.editor.gameType = gameType;
+  if (gameType === GAME.XIANGQI) {
+    app.editor.fu = new Set((config.fuPoints ?? []).map((point) => pointKey(point.x, point.y)));
+    setEditorHintByType(GAME.XIANGQI);
+    return;
+  }
+
+  app.editor.size = Math.max(5, Math.min(25, Number(config.size) || 19));
+  app.editor.blocked = new Set((config.blockedPoints ?? []).map((point) => pointKey(point.x, point.y)));
+  ui.editorSizeInput.value = String(app.editor.size);
+  ui.boardSizeInput.value = String(app.editor.size);
+  ui.komiInput.value = String(Number.isFinite(Number(config.komi)) ? Number(config.komi) : 7.5);
+  setEditorHintByType(GAME.GO);
+}
+
+function buildRoomConfigFromEditor(gameType = app.gameType) {
+  if (gameType === GAME.XIANGQI) {
+    return {
+      fuPoints: Array.from(app.editor.fu).map(parsePointKey),
+      mapName: ""
+    };
+  }
+
+  return {
+    size: app.editor.size,
+    komi: Number(ui.komiInput.value) || 7.5,
+    blockedPoints: normalizePointList(Array.from(app.editor.blocked).map(parsePointKey), app.editor.size),
+    mapName: ""
+  };
+}
+
+function pushRoomConfigUpdate() {
+  if (!isNetworkLobby()) return;
+  if (roomEditLocked()) {
+    setStatus("已有玩家准备，当前不能再编辑棋盘。");
+    return;
+  }
+  sendWs("update_room_config", { config: buildRoomConfigFromEditor(app.room.gameType ?? app.gameType) });
+}
+
+function createPreviewStateFromConfig(gameType, config) {
+  if (gameType === GAME.XIANGQI) {
+    return createXiangqiGameState({ fuPoints: config?.fuPoints ?? [] });
+  }
+  return createGameState({ size: config?.size ?? 19, blockedPoints: config?.blockedPoints ?? [], komi: config?.komi ?? 7.5 });
+}
+
+function resumeRoomSession(session, pendingText) {
+  if (!session) {
+    setStatus("未找到可恢复的房间凭证。");
+    return false;
+  }
+  const sent = sendWs("resume_session", session);
+  if (sent) {
+    setStatus(pendingText ?? `正在恢复房间 ${session.roomId}...`);
+  }
+  return sent;
+}
+
+function applyRoomPayload(data, { autoEnterLobby = false } = {}) {
+  const type = data.gameType === GAME.XIANGQI ? GAME.XIANGQI : GAME.GO;
+  setGameType(type, true);
+  app.mode = "network";
+  app.room.id = data.roomId ?? app.room.id;
+  app.room.gameType = type;
+  if (data.color != null) app.room.color = data.color;
+  if (typeof data.playerToken === "string" && data.playerToken) {
+    rememberRoomSession(data.roomId ?? app.room.id, data.playerToken);
+  }
+  app.room.stage = data.room?.stage ?? app.room.stage ?? "lobby";
+  app.room.readyCount = Number(data.room?.readyCount ?? app.room.readyCount ?? 0);
+  app.room.hasAnyReady = Boolean(data.room?.hasAnyReady ?? app.room.hasAnyReady);
+  app.room.canEdit = Boolean(data.room?.canEdit ?? app.room.canEdit);
+  app.room.canSwap = Boolean(data.room?.canSwap ?? app.room.canSwap);
+  if (Array.isArray(data.room?.players)) app.room.players = data.room.players;
+  if (Array.isArray(data.room?.slots)) app.room.slots = data.room.slots;
+  if (data.config) {
+    syncEditorFromRoomConfig(data.config, type);
+  }
+  if (data.state) {
+    setCurrentState(data.state, type);
+  } else if (app.room.stage === "lobby") {
+    setCurrentState(createPreviewStateFromConfig(type, data.config ?? buildRoomConfigFromEditor(type)), type);
+  }
+  if (autoEnterLobby && app.room.stage === "lobby") {
+    app.editor.gameType = type;
+    setEditorHintByType(type);
+  }
+  updateRoomInfo();
+  updateGameInfo();
+  requestRender();
+}
+
+function renderRoomList() {
+  const rooms = Array.isArray(app.room.list) ? app.room.list : [];
+  const savedSession = loadActiveRoomSession();
+  ui.roomListCountText.textContent = `${rooms.length} 个`;
+  ui.roomList.innerHTML = "";
+
+  if (!rooms.length) {
+    const empty = document.createElement("div");
+    empty.className = "room-list-empty";
+    empty.textContent = "当前没有可见房间。点击“创建房间”即可建立一个可加入的联机房间。";
+    ui.roomList.appendChild(empty);
+    return;
+  }
+
+  for (const room of rooms) {
+    const item = document.createElement("article");
+    item.className = "room-list-item";
+
+    const slots = Array.isArray(room.slots) ? room.slots : [];
+    const onlineCount = slots.filter((slot) => slot.online).length;
+    const readyCount = slots.filter((slot) => slot.ready).length;
+    const canResume = Boolean(
+      savedSession &&
+        savedSession.roomId === room.id &&
+        room.stage === "playing" &&
+        slots.some((slot) => !slot.online)
+    );
+
+    const info = document.createElement("div");
+    const title = document.createElement("strong");
+    title.textContent = `${gameTypeLabel(room.gameType)} · ${room.id}`;
+    const note = document.createElement("p");
+    const detailParts = [`在线 ${onlineCount}/2`];
+    if (room.stage === "lobby") {
+      detailParts.push(`已准备 ${readyCount}/2`);
+    } else if (room.winner != null) {
+      detailParts.push(`胜方 ${sideLabel(room.gameType, room.winner)}`);
+    } else if (room.currentTurn != null) {
+      detailParts.push(`当前回合 ${sideLabel(room.gameType, room.currentTurn)}`);
+    }
+    note.textContent = `${roomStageLabel(room.stage)} | ${detailParts.join(" | ")}`;
+    info.appendChild(title);
+    info.appendChild(note);
+
+    const action = document.createElement("button");
+    action.type = "button";
+    action.textContent =
+      app.room.id === room.id
+        ? "当前房间"
+        : canResume
+          ? "继续"
+          : room.canJoin
+            ? room.stage === "playing"
+              ? "接管"
+              : "加入"
+            : room.stage === "playing"
+              ? "进行中"
+              : "已满";
+    action.disabled = app.room.id === room.id || (!canResume && !room.canJoin);
+    if (canResume) {
+      action.addEventListener("click", () => {
+        resumeRoomSession(savedSession, `正在继续房间 ${room.id} 的棋局...`);
+      });
+    } else if (room.canJoin && app.room.id !== room.id) {
+      action.addEventListener("click", () => {
+        sendWs("join_room", { roomId: room.id });
+        setStatus(room.stage === "playing" ? `正在接回房间 ${room.id} 的空席位...` : `正在加入房间 ${room.id}...`);
+      });
+    }
+
+    item.appendChild(info);
+    item.appendChild(action);
+    ui.roomList.appendChild(item);
+  }
+}
+
 function showPopup(message) {
-  window.alert(message);
+  const item = document.createElement("div");
+  item.className = "toast";
+  item.textContent = message;
+  ui.toastStack.appendChild(item);
+  window.setTimeout(() => {
+    item.remove();
+  }, 2600);
 }
 
 function showStartPopup(gameType) {
@@ -439,6 +819,7 @@ function setCurrentState(state, gameType = app.gameType) {
 function startLocalGame() {
   if (app.room.id) leaveRoom();
   app.mode = "local";
+  closeSettingsModal();
 
   if (app.gameType === GAME.XIANGQI) {
     const config = buildXqConfig();
@@ -469,19 +850,47 @@ function connectWs() {
   if (app.ws && (app.ws.readyState === WebSocket.OPEN || app.ws.readyState === WebSocket.CONNECTING)) {
     return;
   }
+  app.connectionState = "connecting";
+  updateDashboard();
   const ws = new WebSocket(getWsUrl());
   app.ws = ws;
 
   ws.addEventListener("open", () => {
+    if (app.reconnectTimer) {
+      clearTimeout(app.reconnectTimer);
+      app.reconnectTimer = null;
+    }
     app.wsReady = true;
+    app.connectionState = "online";
+    updateRoomInfo();
+    const savedSession = loadActiveRoomSession();
+    if (savedSession) {
+      ws.send(JSON.stringify({ type: "resume_session", ...savedSession }));
+      setStatus(`网络已连接，正在恢复房间 ${savedSession.roomId}...`);
+      return;
+    }
     setStatus("WebSocket 已连接，可进行网页对战。");
   });
 
   ws.addEventListener("close", () => {
     app.wsReady = false;
+    app.connectionState = "offline";
+    if (app.room.id && app.room.playerToken) {
+      saveActiveRoomSession(app.room.id, app.room.playerToken);
+    }
+    updateRoomInfo();
     if (app.mode === "network") setStatus("网络连接断开，正在重连...");
     if (app.reconnectTimer) clearTimeout(app.reconnectTimer);
-    app.reconnectTimer = setTimeout(connectWs, 1200);
+    app.reconnectTimer = setTimeout(() => {
+      app.reconnectTimer = null;
+      connectWs();
+    }, 1200);
+  });
+
+  ws.addEventListener("error", () => {
+    if (ws.readyState === WebSocket.OPEN || ws.readyState === WebSocket.CONNECTING) {
+      ws.close();
+    }
   });
 
   ws.addEventListener("message", (event) => {
@@ -504,15 +913,129 @@ function sendWs(type, payload = {}) {
   return true;
 }
 
+function updatePresenceSlot(slotEl, labelEl, noteEl, stateEl, actionEl, slot, index) {
+  const gameType = app.room.gameType ?? app.gameType;
+  const state = getCurrentState();
+  const online = Boolean(slot?.online);
+  const ready = Boolean(slot?.ready);
+  const side = slot?.side ?? sideList(gameType)[index];
+  const isMine = app.room.color === side;
+  const isTurn = Boolean(!isNetworkLobby() && state && !state.gameOver && state.turn === side);
+
+  labelEl.textContent = `${sideLabel(gameType, side)}席位`;
+  if (!app.room.id) {
+    noteEl.textContent = index === 0 ? "房主位置" : "等待第二位玩家";
+  } else if (isMine) {
+    noteEl.textContent = ready ? "你已准备" : online ? "你已就位" : "你的席位断线";
+  } else if (online) {
+    noteEl.textContent = ready ? "对手已准备" : "对手已在线";
+  } else {
+    noteEl.textContent = "等待玩家进入";
+  }
+
+  stateEl.textContent = isTurn && online ? "行动中" : ready ? "已准备" : online ? "在线" : "离线";
+  stateEl.className = `player-state ${online ? "online" : "offline"}${isTurn && online ? " turn" : ""}`;
+  slotEl.classList.toggle("me", isMine);
+  slotEl.classList.toggle("active-turn", isTurn && online);
+
+  if (!app.room.id) {
+    actionEl.textContent = "待加入";
+    actionEl.disabled = true;
+    return;
+  }
+  if (!isNetworkLobby()) {
+    actionEl.textContent = isMine ? "已锁定" : "锁定";
+    actionEl.disabled = true;
+    return;
+  }
+  if (isMine) {
+    actionEl.textContent = "当前";
+    actionEl.disabled = true;
+    return;
+  }
+  actionEl.textContent = roomEditLocked() ? "已锁定" : online ? "换到这边" : "选这边";
+  actionEl.disabled = roomEditLocked();
+}
+
+function updateConfigLocks() {
+  const lockRoomEditing = roomEditLocked() || (app.mode === "network" && app.room.stage === "playing");
+  const disableSetup = app.mode === "network" && app.room.id && app.room.stage !== "idle";
+
+  ui.boardSizeInput.disabled = disableSetup;
+  ui.regionCountInput.disabled = disableSetup;
+  ui.regionDefaultSizeInput.disabled = disableSetup;
+  ui.regionSizesInput.disabled = disableSetup;
+  ui.goMapSelect.disabled = disableSetup;
+  ui.xqFuCountInput.disabled = disableSetup;
+  ui.xqMapSelect.disabled = disableSetup;
+
+  ui.komiInput.disabled = lockRoomEditing && isNetworkLobby();
+  ui.editorSizeInput.disabled = lockRoomEditing;
+  ui.applyEditorSizeBtn.disabled = lockRoomEditing;
+  ui.clearEditorBtn.disabled = lockRoomEditing;
+  ui.editorMapSelect.disabled = lockRoomEditing;
+  ui.loadMapBtn.disabled = lockRoomEditing;
+}
+
+function updateDashboard() {
+  const state = getCurrentState();
+  const gameType = app.room.gameType ?? app.gameType;
+  const connectionText =
+    app.connectionState === "online" ? "已连接" : app.connectionState === "offline" ? "已断开" : "连接中";
+
+  ui.connectionBadge.textContent = connectionText;
+  ui.connectionBadge.className = `connection-pill ${app.connectionState === "online" ? "online" : ""}${
+    app.connectionState === "offline" ? " offline" : ""
+  }`;
+
+  ui.activeGameBadge.textContent = gameTypeLabel(gameType);
+  ui.activeModeBadge.textContent = gameModeLabel(app.mode);
+  ui.activeTurnBadge.textContent =
+    app.mode === "editor"
+      ? "编辑模式已开启"
+      : isNetworkLobby()
+        ? roomEditLocked()
+          ? "已有人准备"
+          : "等待双方准备"
+        : state
+          ? `当前回合 ${sideLabel(gameType, state.turn)}`
+          : "等待开局";
+
+  ui.headlineTitle.textContent =
+    app.mode === "editor" ? `${gameTypeLabel(gameType)}地图工坊` : isNetworkLobby() ? `${gameTypeLabel(gameType)}房间布阵` : `${gameTypeLabel(gameType)}对战台`;
+  if (isNetworkLobby()) {
+    ui.headlineSubtitle.textContent = `房间 ${app.room.id} 布阵阶段已开启，双方可先同步棋盘、选边并准备开局。`;
+  } else if (app.mode === "network" && app.room.id) {
+    ui.headlineSubtitle.textContent = `房间 ${app.room.id} 已接入，主界面突出房间状态、在线席位和当前回合。`;
+  } else if (app.mode === "editor") {
+    ui.headlineSubtitle.textContent = "棋盘保持在主舞台，复杂的地图尺寸、存档读取和保存管理都收纳在对局菜单中。";
+  } else {
+    ui.headlineSubtitle.textContent = "优先显示棋盘与关键回合信息，复杂配置收纳在对局菜单中。";
+  }
+
+  ui.modeIndicatorText.textContent = gameModeLabel(app.mode);
+  ui.phaseIndicatorText.textContent = currentPhaseLabel();
+  ui.turnIndicatorText.textContent = currentTurnLabel();
+  ui.roomStatusBanner.textContent = roomBannerText();
+  ui.readyBtn.disabled = !app.room.id || app.room.stage !== "lobby";
+  const mySlot = getRoomSlots().find((slot) => slot.side === app.room.color);
+  ui.readyBtn.textContent = mySlot?.ready ? "取消准备" : "准备";
+  updateConfigLocks();
+}
+
 function updateRoomInfo() {
+  const slots = getRoomSlots();
+  const onlineCount = slots.filter((slot) => slot.online).length;
+
   ui.roomIdText.textContent = app.room.id ?? "-";
   ui.roomGameTypeText.textContent = app.room.gameType ? gameTypeLabel(app.room.gameType) : "-";
   ui.myColorText.textContent = app.room.color ? sideLabel(app.room.gameType ?? app.gameType, app.room.color) : "-";
-  if (!app.room.players.length) {
-    ui.roomPlayersText.textContent = "-";
-  } else {
-    ui.roomPlayersText.textContent = app.room.players.map((c) => sideLabel(app.room.gameType ?? app.gameType, c)).join(" / ");
-  }
+  ui.roomPlayersText.textContent = app.room.id ? `${onlineCount} / ${slots.length} 在线` : "-";
+
+  updatePresenceSlot(ui.playerSlot1, ui.playerSlot1Label, ui.playerSlot1Note, ui.playerSlot1State, ui.playerSlot1Action, slots[0], 0);
+  updatePresenceSlot(ui.playerSlot2, ui.playerSlot2Label, ui.playerSlot2Note, ui.playerSlot2State, ui.playerSlot2Action, slots[1], 1);
+  updateDashboard();
+  renderRoomList();
 }
 
 function handleWsMessage(data) {
@@ -522,26 +1045,92 @@ function handleWsMessage(data) {
   }
   if (data.type === "connected") return;
 
+  if (data.type === "room_list") {
+    app.room.list = Array.isArray(data.rooms) ? data.rooms : [];
+    renderRoomList();
+    return;
+  }
+
+  if (typeof data.playerToken === "string" && data.playerToken) {
+    rememberRoomSession(data.roomId ?? app.room.id, data.playerToken);
+  }
+
   if (data.room) {
+    if (data.roomId) app.room.id = data.roomId;
+    if (data.color != null) app.room.color = data.color;
     app.room.players = Array.isArray(data.room.players) ? data.room.players : app.room.players;
+    app.room.slots = Array.isArray(data.room.slots) ? data.room.slots : app.room.slots;
     app.room.gameType = data.room.gameType ?? app.room.gameType;
+    app.room.stage = data.room.stage ?? app.room.stage;
+    app.room.readyCount = Number(data.room.readyCount ?? app.room.readyCount ?? 0);
+    app.room.hasAnyReady = Boolean(data.room.hasAnyReady ?? app.room.hasAnyReady);
+    app.room.canEdit = Boolean(data.room.canEdit ?? app.room.canEdit);
+    app.room.canSwap = Boolean(data.room.canSwap ?? app.room.canSwap);
     updateRoomInfo();
   }
 
   if (data.type === "room_created" || data.type === "joined_room") {
-    const type = data.gameType === GAME.XIANGQI ? GAME.XIANGQI : GAME.GO;
-    setGameType(type, true);
-    app.mode = "network";
-    app.room.id = data.roomId;
-    app.room.gameType = type;
-    app.room.color = data.color;
     app.room.hasStartedNotice = false;
     app.room.hasEndedNotice = false;
-    setCurrentState(data.state, type);
-    updateRoomInfo();
-    updateGameInfo();
-    requestRender();
-    setStatus(`已进入房间 ${data.roomId}，你执 ${sideLabel(type, data.color)}。`);
+    applyRoomPayload(data, { autoEnterLobby: true });
+    closeSettingsModal();
+    setStatus(
+      data.room?.stage === "playing"
+        ? `已进入房间 ${data.roomId}，已接回当前进行中的对局。`
+        : `已进入房间 ${data.roomId}，可先同步棋盘、选择执方并准备开局。`
+    );
+    return;
+  }
+
+  if (data.type === "session_resumed") {
+    app.room.hasStartedNotice = false;
+    app.room.hasEndedNotice = false;
+    applyRoomPayload(data, { autoEnterLobby: data.room?.stage === "lobby" });
+    closeSettingsModal();
+    setStatus(
+      data.room?.stage === "playing"
+        ? `已恢复房间 ${data.roomId} 的进行中对局。`
+        : `已恢复房间 ${data.roomId}，继续布阵。`
+    );
+    return;
+  }
+
+  if (data.type === "session_resume_failed") {
+    const keepSession = String(data.message ?? "").includes("当前在线");
+    if (!keepSession) {
+      clearActiveRoomSession();
+      app.room = createEmptyRoomState(app.room.list);
+      if (app.mode === "network") app.mode = "local";
+      updateRoomInfo();
+      updateGameInfo();
+    }
+    setStatus(
+      keepSession
+        ? `恢复失败：${data.message}`
+        : `恢复失败：${data.message}。若房间仍在进行且有空席位，可在大厅直接点击“接管”。`
+    );
+    return;
+  }
+
+  if (data.type === "room_info") {
+    if (app.room.id && data.roomId === app.room.id) {
+      applyRoomPayload(data, { autoEnterLobby: true });
+      setStatus(`房间信息更新：${data.room.id}`);
+    } else {
+      updateRoomInfo();
+    }
+    return;
+  }
+
+  if (data.type === "game_start") {
+    app.room.hasStartedNotice = false;
+    app.room.hasEndedNotice = false;
+    applyRoomPayload(data);
+    if (app.mode === "network" && app.room.id === data.roomId && !app.room.hasStartedNotice) {
+      app.room.hasStartedNotice = true;
+      showStartPopup(data.gameType === GAME.XIANGQI ? GAME.XIANGQI : GAME.GO);
+    }
+    setStatus("双方已准备，对局开始。");
     return;
   }
 
@@ -549,6 +1138,7 @@ function handleWsMessage(data) {
     const type = data.gameType === GAME.XIANGQI ? GAME.XIANGQI : GAME.GO;
     app.mode = "network";
     setGameType(type, true);
+    app.room.stage = "playing";
     setCurrentState(data.state, type);
     updateGameInfo();
     requestRender();
@@ -556,14 +1146,6 @@ function handleWsMessage(data) {
       setStatus("对局已结束。");
     } else {
       setStatus(`已同步对局，轮到 ${sideLabel(type, getCurrentState().turn)}。`);
-    }
-    return;
-  }
-
-  if (data.type === "game_start") {
-    if (app.mode === "network" && app.room.id === data.roomId && !app.room.hasStartedNotice) {
-      app.room.hasStartedNotice = true;
-      showStartPopup(data.gameType === GAME.XIANGQI ? GAME.XIANGQI : GAME.GO);
     }
     return;
   }
@@ -576,11 +1158,6 @@ function handleWsMessage(data) {
     }
     return;
   }
-
-  if (data.type === "room_info") {
-    updateRoomInfo();
-    setStatus(`房间信息更新：${data.room.id}`);
-  }
 }
 
 function createRoom() {
@@ -590,26 +1167,17 @@ function createRoom() {
   setStatus(`正在创建${gameTypeLabel(app.gameType)}房间...`);
 }
 
-function joinRoom() {
-  const roomId = String(ui.joinRoomInput.value ?? "").trim().toUpperCase();
-  if (!roomId) {
-    setStatus("请先输入房间码");
-    return;
-  }
-  if (!sendWs("join_room", { roomId })) return;
-  setStatus(`正在加入房间 ${roomId}...`);
-}
-
 function leaveRoom() {
   sendWs("leave_room");
-  app.room = { id: null, gameType: null, color: null, players: [], hasStartedNotice: false, hasEndedNotice: false };
+  clearActiveRoomSession(app.room.id);
+  app.room = createEmptyRoomState(app.room.list);
   if (app.mode === "network") app.mode = "local";
   updateRoomInfo();
 }
 
 function myTurnInNetwork() {
   const state = getCurrentState();
-  return app.mode === "network" && state && app.room.color === state.turn;
+  return app.mode === "network" && app.room.stage === "playing" && state && app.room.color === state.turn;
 }
 
 function runPass() {
@@ -621,6 +1189,10 @@ function runPass() {
   if (!state) return;
 
   if (app.mode === "network") {
+    if (app.room.stage !== "playing") {
+      setStatus("双方准备并开始对局后，才可使用停一手。");
+      return;
+    }
     if (!myTurnInNetwork()) {
       setStatus("当前不是你的回合");
       return;
@@ -645,6 +1217,10 @@ function runResign() {
   if (!state) return;
 
   if (app.mode === "network") {
+    if (app.room.stage !== "playing") {
+      setStatus("房间仍在布阵阶段，当前不能认输。");
+      return;
+    }
     if (!myTurnInNetwork()) {
       setStatus("当前不是你的回合");
       return;
@@ -694,8 +1270,25 @@ function countXqUpgraded(state) {
 
 function updateGameInfo() {
   const state = getCurrentState();
+  if (isNetworkLobby()) {
+    const lines = [];
+    lines.push(`游戏：${gameTypeLabel(app.gameType)} | 模式：网页对战房间`);
+    lines.push(`阶段：房间布阵 | 房间：${app.room.id}`);
+    lines.push(`执方：${app.room.color ? sideLabel(app.gameType, app.room.color) : "未选择"} | 已准备：${app.room.readyCount}/2`);
+    lines.push(roomEditLocked() ? "布阵已锁定：已有玩家点击准备，当前不能再换边或编辑棋盘。" : "布阵可编辑：双方可在开局前同步棋盘、切换执方。");
+    if (app.gameType === GAME.GO) {
+      lines.push(`当前房间配置：${app.editor.size} 路 | 水潭点 ${app.editor.blocked.size} | 贴目 ${Number(ui.komiInput.value) || 7.5}`);
+    } else {
+      lines.push(`当前房间配置：场上符 ${app.editor.fu.size} 枚`);
+    }
+    ui.gameInfo.textContent = lines.join("\n");
+    updateDashboard();
+    return;
+  }
+
   if (!state) {
     ui.gameInfo.textContent = "未开始对局";
+    updateDashboard();
     return;
   }
 
@@ -753,6 +1346,7 @@ function updateGameInfo() {
   }
 
   ui.gameInfo.textContent = lines.join("\n");
+  updateDashboard();
 }
 
 function drawWoodBackground(width, height) {
@@ -1003,6 +1597,8 @@ function drawGoCaption(metrics) {
   const text =
     app.mode === "editor"
       ? "围棋地图编辑器：点击交叉点切换水潭"
+      : isNetworkLobby()
+        ? `围棋房间布阵：你当前执 ${sideLabel(GAME.GO, app.room.color)}`
       : app.mode === "network"
         ? `围棋网页对战：你执 ${sideLabel(GAME.GO, app.room.color)}`
         : "围棋本地自我对弈";
@@ -1095,20 +1691,23 @@ function drawXqBoard(metrics) {
   ctx.fillText("汉界", metrics.firstX + metrics.cell * 6, metrics.firstY + metrics.cell * 4.5);
 }
 
-function drawDiamond(cx, cy, size) {
-  const grad = ctx.createLinearGradient(cx - size, cy - size, cx + size, cy + size);
-  grad.addColorStop(0, "rgba(150, 235, 255, 0.95)");
-  grad.addColorStop(0.45, "rgba(84, 191, 242, 0.95)");
-  grad.addColorStop(1, "rgba(43, 122, 200, 0.96)");
+function drawUpgradeHalo(cx, cy, size) {
+  const outer = ctx.createRadialGradient(cx, cy, size * 0.22, cx, cy, size * 1.32);
+  outer.addColorStop(0, "rgba(255, 244, 189, 0.12)");
+  outer.addColorStop(0.55, "rgba(242, 196, 74, 0.38)");
+  outer.addColorStop(1, "rgba(170, 106, 18, 0)");
 
   ctx.save();
-  ctx.translate(cx, cy);
-  ctx.rotate(Math.PI / 4);
-  ctx.fillStyle = grad;
-  ctx.fillRect(-size * 0.62, -size * 0.62, size * 1.24, size * 1.24);
-  ctx.strokeStyle = "rgba(225, 251, 255, 0.9)";
+  ctx.fillStyle = outer;
+  ctx.beginPath();
+  ctx.arc(cx, cy, size * 1.32, 0, Math.PI * 2);
+  ctx.fill();
+
+  ctx.strokeStyle = "rgba(255, 245, 208, 0.7)";
   ctx.lineWidth = Math.max(1, size * 0.08);
-  ctx.strokeRect(-size * 0.62, -size * 0.62, size * 1.24, size * 1.24);
+  ctx.beginPath();
+  ctx.arc(cx, cy, size * 1.06, 0, Math.PI * 2);
+  ctx.stroke();
   ctx.restore();
 }
 
@@ -1130,7 +1729,7 @@ function drawXqPiece(piece, x, y, metrics, selected) {
   const r = Math.max(16, metrics.cell * 0.43);
 
   if (piece.upgraded && piece.team !== XQ_TEAM.NEUTRAL) {
-    drawDiamond(cx, cy, r * 1.1);
+    drawUpgradeHalo(cx, cy, r);
   }
 
   ctx.save();
@@ -1142,19 +1741,18 @@ function drawXqPiece(piece, x, y, metrics, selected) {
 
   if (piece.team === XQ_TEAM.NEUTRAL) {
     const g = ctx.createRadialGradient(cx - r * 0.3, cy - r * 0.35, r * 0.15, cx, cy, r);
-    g.addColorStop(0, "#fff2b9");
-    g.addColorStop(0.5, "#f8ca5d");
-    g.addColorStop(1, "#c98620");
+    g.addColorStop(0, "#f5ffff");
+    g.addColorStop(0.48, "#9bdfe1");
+    g.addColorStop(1, "#4d8793");
     ctx.fillStyle = g;
     ctx.fill();
-    ctx.strokeStyle = "#8f6217";
+    ctx.strokeStyle = "#2f6874";
   } else {
     const g = ctx.createRadialGradient(cx - r * 0.26, cy - r * 0.32, r * 0.14, cx, cy, r);
     if (piece.upgraded) {
-      g.addColorStop(0, "#fff8ff");
-      g.addColorStop(0.34, piece.team === XQ_TEAM.RED ? "#ff9bd5" : "#97b7ff");
-      g.addColorStop(0.68, "#76f3ff");
-      g.addColorStop(1, "#8f5fff");
+      g.addColorStop(0, "#fff9e6");
+      g.addColorStop(0.42, "#f2d270");
+      g.addColorStop(1, "#bb811f");
     } else {
       g.addColorStop(0, "#fffdf6");
       g.addColorStop(0.55, "#f0ddbd");
@@ -1176,7 +1774,16 @@ function drawXqPiece(piece, x, y, metrics, selected) {
     ctx.stroke();
   }
 
-  ctx.fillStyle = piece.team === XQ_TEAM.RED ? "#b42020" : piece.team === XQ_TEAM.BLACK ? "#191919" : "#4a3713";
+  ctx.fillStyle =
+    piece.team === XQ_TEAM.NEUTRAL
+      ? "#1f5964"
+      : piece.upgraded
+        ? piece.team === XQ_TEAM.RED
+          ? "#7f2113"
+          : "#2d2417"
+        : piece.team === XQ_TEAM.RED
+          ? "#b42020"
+          : "#191919";
   ctx.textAlign = "center";
   ctx.textBaseline = "middle";
   ctx.font = `${Math.max(17, r * 0.92)}px "Noto Serif SC", "Songti SC", serif`;
@@ -1184,8 +1791,8 @@ function drawXqPiece(piece, x, y, metrics, selected) {
 
   if (piece.upgraded && piece.team !== XQ_TEAM.NEUTRAL) {
     ctx.font = `${Math.max(10, r * 0.36)}px "Noto Sans SC", sans-serif`;
-    ctx.fillStyle = "#e8fbff";
-    ctx.fillText("钻", cx + r * 0.58, cy - r * 0.56);
+    ctx.fillStyle = "#fff4d0";
+    ctx.fillText("升", cx + r * 0.58, cy - r * 0.56);
   }
 
   ctx.restore();
@@ -1216,6 +1823,8 @@ function drawXqCaption(metrics) {
   const text =
     app.mode === "editor"
       ? "象棋地图编辑器：点击交叉点切换符"
+      : isNetworkLobby()
+        ? `象棋房间布阵：你当前执 ${sideLabel(GAME.XIANGQI, app.room.color)}`
       : app.mode === "network"
         ? `象棋网页对战：你执 ${sideLabel(GAME.XIANGQI, app.room.color)}`
         : "象棋本地自我对弈";
@@ -1225,7 +1834,7 @@ function drawXqCaption(metrics) {
 }
 
 function getRenderGoState() {
-  if (app.mode === "editor" && app.editor.gameType === GAME.GO) {
+  if ((app.mode === "editor" || isNetworkLobby()) && app.editor.gameType === GAME.GO) {
     const board = Array.from({ length: app.editor.size }, () => Array(app.editor.size).fill(STONE.EMPTY));
     for (const key of app.editor.blocked) {
       const p = parsePointKey(key);
@@ -1237,7 +1846,7 @@ function getRenderGoState() {
 }
 
 function getRenderXqState() {
-  if (app.mode === "editor" && app.editor.gameType === GAME.XIANGQI) {
+  if ((app.mode === "editor" || isNetworkLobby()) && app.editor.gameType === GAME.XIANGQI) {
     const fuPoints = Array.from(app.editor.fu).map(parsePointKey);
     return createXiangqiGameState({ fuPoints });
   }
@@ -1249,6 +1858,7 @@ function render() {
     const state = getRenderXqState();
     const metrics = computeXqMetrics();
     app.boardMetrics = { ...metrics, gameType: GAME.XIANGQI };
+    window.__codexMetrics = app.boardMetrics;
     drawXqBoard(metrics);
     if (state) drawXqPieces(state, metrics);
     drawXqCaption(metrics);
@@ -1259,6 +1869,7 @@ function render() {
   const size = goState?.size ?? Math.max(5, Math.min(25, Number(ui.boardSizeInput.value) || 19));
   const metrics = computeGoMetrics(size);
   app.boardMetrics = { ...metrics, gameType: GAME.GO };
+  window.__codexMetrics = app.boardMetrics;
   drawGoBoard(metrics);
   if (goState) {
     drawPonds(goState, metrics);
@@ -1310,6 +1921,10 @@ function canvasPointToXq(clientX, clientY) {
 }
 
 function handleGoPlay(point) {
+  if (isNetworkLobby()) {
+    setStatus("房间仍在布阵阶段，请先完成准备后再开始落子。");
+    return;
+  }
   const state = app.go.state;
   if (!state || state.gameOver) return;
 
@@ -1334,6 +1949,10 @@ function handleGoPlay(point) {
 }
 
 function handleXqPlay(point) {
+  if (isNetworkLobby()) {
+    setStatus("房间仍在布阵阶段，请先完成准备后再开始走子。");
+    return;
+  }
   const state = app.xiangqi.state;
   if (!state || state.gameOver) return;
   const piece = state.board[point.y][point.x];
@@ -1397,12 +2016,18 @@ function handleXqPlay(point) {
 }
 
 function toggleEditorPoint(point) {
+  if (roomEditLocked()) {
+    setStatus("已有玩家准备，当前不能继续编辑棋盘。");
+    return;
+  }
   if (app.editor.gameType === GAME.GO) {
     const key = pointKey(point.x, point.y);
     if (app.editor.blocked.has(key)) app.editor.blocked.delete(key);
     else app.editor.blocked.add(key);
-    setStatus(`围棋编辑器：水潭点 ${app.editor.blocked.size}`);
+    setStatus(`${isNetworkLobby() ? "房间布阵" : "围棋编辑器"}：水潭点 ${app.editor.blocked.size}`);
+    if (isNetworkLobby()) pushRoomConfigUpdate();
     requestRender();
+    updateGameInfo();
     return;
   }
 
@@ -1413,15 +2038,17 @@ function toggleEditorPoint(point) {
   }
   if (app.editor.fu.has(key)) app.editor.fu.delete(key);
   else app.editor.fu.add(key);
-  setStatus(`象棋编辑器：符 ${app.editor.fu.size} 枚`);
+  setStatus(`${isNetworkLobby() ? "房间布阵" : "象棋编辑器"}：符 ${app.editor.fu.size} 枚`);
+  if (isNetworkLobby()) pushRoomConfigUpdate();
   requestRender();
+  updateGameInfo();
 }
 
 function handleBoardClick(event) {
   if (app.gameType === GAME.XIANGQI) {
     const point = canvasPointToXq(event.clientX, event.clientY);
     if (!point) return;
-    if (app.mode === "editor") {
+    if (app.mode === "editor" || isNetworkLobby()) {
       toggleEditorPoint(point);
       return;
     }
@@ -1431,7 +2058,7 @@ function handleBoardClick(event) {
 
   const point = canvasPointToGo(event.clientX, event.clientY);
   if (!point) return;
-  if (app.mode === "editor") {
+  if (app.mode === "editor" || isNetworkLobby()) {
     toggleEditorPoint(point);
     return;
   }
@@ -1439,7 +2066,8 @@ function handleBoardClick(event) {
 }
 
 function loadMapToEditor(map) {
-  app.mode = "editor";
+  const inRoomLobby = isNetworkLobby();
+  if (!inRoomLobby) app.mode = "editor";
   app.editor.gameType = map.gameType;
   setGameType(map.gameType, true);
 
@@ -1457,6 +2085,9 @@ function loadMapToEditor(map) {
   refreshMapSelects();
   ui.editorMapSelect.value = map.id;
   setStatus(`已加载地图：${map.name}`);
+  if (inRoomLobby) {
+    pushRoomConfigUpdate();
+  }
   updateGameInfo();
   requestRender();
 }
@@ -1466,14 +2097,29 @@ function setEditorSize(size) {
   app.editor.size = clamped;
   app.editor.blocked = new Set();
   ui.editorSizeInput.value = String(clamped);
-  app.mode = "editor";
+  ui.boardSizeInput.value = String(clamped);
+  if (!isNetworkLobby()) app.mode = "editor";
   app.editor.gameType = GAME.GO;
   setEditorHintByType(GAME.GO);
   refreshMapSelects();
+  if (isNetworkLobby()) {
+    pushRoomConfigUpdate();
+    updateGameInfo();
+  }
   requestRender();
 }
 
 function openEditorForCurrentGame() {
+  if (isNetworkLobby()) {
+    app.editor.gameType = app.gameType;
+    setEditorHintByType(app.editor.gameType);
+    refreshMapSelects();
+    setStatus(`已进入${gameTypeLabel(app.editor.gameType)}房间布阵模式。`);
+    updateGameInfo();
+    requestRender();
+    return;
+  }
+
   app.mode = "editor";
   app.editor.gameType = app.gameType;
   setEditorHintByType(app.editor.gameType);
@@ -1512,16 +2158,46 @@ function bindEvents() {
   ui.gameTabXiangqi.addEventListener("click", () => setGameType(GAME.XIANGQI));
 
   ui.startLocalBtn.addEventListener("click", startLocalGame);
-  ui.openEditorBtn.addEventListener("click", openEditorForCurrentGame);
+  ui.openEditorBtn.addEventListener("click", () => {
+    switchMenuPanel("editor");
+    openSettingsModal();
+  });
+  ui.enterEditorBtn.addEventListener("click", () => {
+    openEditorForCurrentGame();
+    closeSettingsModal();
+  });
+  ui.openSettingsBtn.addEventListener("click", () => {
+    switchMenuPanel("setup");
+    openSettingsModal();
+  });
+  ui.closeSettingsBtn.addEventListener("click", closeSettingsModal);
+  ui.menuTabSetup.addEventListener("click", () => switchMenuPanel("setup"));
+  ui.menuTabEditor.addEventListener("click", () => switchMenuPanel("editor"));
+  ui.settingsModal.addEventListener("click", (event) => {
+    if (event.target === ui.settingsModal) closeSettingsModal();
+  });
 
   ui.createRoomBtn.addEventListener("click", createRoom);
-  ui.joinRoomBtn.addEventListener("click", joinRoom);
+  ui.playerSlot1Action.addEventListener("click", () => {
+    sendWs("choose_side", { side: getRoomSlots()[0]?.side });
+  });
+  ui.playerSlot2Action.addEventListener("click", () => {
+    sendWs("choose_side", { side: getRoomSlots()[1]?.side });
+  });
   ui.leaveRoomBtn.addEventListener("click", () => {
     leaveRoom();
     setStatus("已离开房间");
     updateGameInfo();
   });
 
+  ui.readyBtn.addEventListener("click", () => {
+    if (!isNetworkLobby()) {
+      setStatus("当前不在房间布阵阶段。");
+      return;
+    }
+    const mySlot = getRoomSlots().find((slot) => slot.side === app.room.color);
+    sendWs("set_ready", { ready: !mySlot?.ready });
+  });
   ui.passBtn.addEventListener("click", runPass);
   ui.resignBtn.addEventListener("click", runResign);
   ui.scoreBtn.addEventListener("click", runScorePreview);
@@ -1532,10 +2208,16 @@ function bindEvents() {
   });
 
   ui.clearEditorBtn.addEventListener("click", () => {
+    if (roomEditLocked()) {
+      setStatus("已有玩家准备，当前不能继续编辑棋盘。");
+      return;
+    }
     if (app.editor.gameType === GAME.GO) app.editor.blocked = new Set();
     else app.editor.fu = new Set();
     setStatus(`${gameTypeLabel(app.editor.gameType)}编辑点已清空。`);
+    if (isNetworkLobby()) pushRoomConfigUpdate();
     requestRender();
+    updateGameInfo();
   });
 
   ui.loadMapBtn.addEventListener("click", () => {
@@ -1610,7 +2292,14 @@ function bindEvents() {
   });
 
   ui.canvas.addEventListener("click", handleBoardClick);
+  ui.komiInput.addEventListener("change", () => {
+    if (isNetworkLobby() && app.gameType === GAME.GO && !roomEditLocked()) {
+      pushRoomConfigUpdate();
+      updateGameInfo();
+    }
+  });
   ui.rulesBtn.addEventListener("click", () => {
+    closeSettingsModal();
     openRulesModal();
   });
   ui.closeRulesBtn.addEventListener("click", closeRulesModal);
@@ -1619,9 +2308,21 @@ function bindEvents() {
   });
 
   window.addEventListener("resize", resizeCanvas);
+  window.addEventListener("online", () => {
+    if (app.connectionState !== "online") connectWs();
+  });
+  window.addEventListener("offline", () => {
+    if (app.mode === "network") {
+      setStatus("浏览器检测到网络离线，正在等待恢复...");
+    }
+  });
   window.addEventListener("keydown", (event) => {
     if (event.key === "Escape" && !ui.rulesModal.classList.contains("hidden")) {
       closeRulesModal();
+      return;
+    }
+    if (event.key === "Escape" && !ui.settingsModal.classList.contains("hidden")) {
+      closeSettingsModal();
       return;
     }
     if (event.key.toLowerCase() !== "f") return;
@@ -1716,6 +2417,7 @@ function init() {
   app.maps = loadMapsFromStorage();
   refreshMapSelects();
   bindEvents();
+  switchMenuPanel("setup");
   connectWs();
 
   app.editor.size = 19;

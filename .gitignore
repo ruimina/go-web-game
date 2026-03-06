@@ -19,3 +19,9 @@
 # Shared game rules.
 !shared/
 !shared/**
+
+# Local automation helpers.
+!scripts/
+!scripts/**
+!docs/
+!docs/**

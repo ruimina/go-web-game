@@ -337,7 +337,11 @@ function simulateMove(state, fromX, fromY, toX, toY) {
   const target = clonePiece(next.board[toY][toX]);
 
   next.board[fromY][fromX] = null;
-  if (target && target.team === XQ_TEAM.NEUTRAL && target.type === XQ_PIECE.FU) {
+  if (
+    target &&
+    ((target.team === XQ_TEAM.NEUTRAL && target.type === XQ_PIECE.FU) ||
+      (target.team !== XQ_TEAM.NEUTRAL && target.upgraded))
+  ) {
     piece.upgraded = true;
   }
   next.board[toY][toX] = piece;
