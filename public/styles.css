@@ -766,7 +766,7 @@ p {
 
 @media (max-width: 940px) {
   .app-shell {
-    padding: 16px;
+    padding: 12px;
   }
 
   .topbar,
@@ -792,6 +792,36 @@ p {
     grid-template-columns: minmax(0, 1fr);
   }
 
+  .experience-grid {
+    gap: 14px;
+    margin-top: 14px;
+  }
+
+  .stage-overview {
+    gap: 12px;
+    padding: 14px 16px;
+    margin-bottom: 12px;
+  }
+
+  .overview-copy h2 {
+    font-size: 24px;
+  }
+
+  .overview-copy p {
+    font-size: 14px;
+    line-height: 1.55;
+  }
+
+  .board-stage {
+    padding: 12px;
+    border-radius: 26px;
+  }
+
+  .board-stage-inner {
+    padding: 10px;
+    border-radius: 22px;
+  }
+
   .meta-grid,
   .summary-grid,
   .game-config-panel,
@@ -810,8 +840,9 @@ p {
 
   #board-canvas {
     width: 100%;
-    height: min(72vw, 780px);
-    min-height: 360px;
+    height: min(108vw, 760px);
+    min-height: 420px;
+    max-height: 760px;
   }
 
   .modal {
@@ -834,5 +865,79 @@ p {
   .rules-content {
     padding-left: 18px;
     padding-right: 18px;
+  }
+}
+
+@media (max-width: 640px) {
+  .app-shell {
+    padding: 8px;
+  }
+
+  .topbar,
+  .stage-overview,
+  .room-panel,
+  .command-panel {
+    padding: 14px;
+  }
+
+  .board-stage {
+    padding: 8px;
+  }
+
+  .board-stage-inner {
+    padding: 8px;
+  }
+
+  .badge-row {
+    gap: 8px;
+  }
+
+  .status-chip,
+  .connection-pill,
+  .player-state {
+    min-height: 32px;
+    padding: 6px 12px;
+    font-size: 12px;
+  }
+
+  .overview-copy h2 {
+    font-size: 21px;
+  }
+
+  .overview-copy p {
+    display: none;
+  }
+
+  .section-heading h2 {
+    font-size: 22px;
+  }
+
+  .room-hero {
+    margin-top: 12px;
+    padding: 14px;
+  }
+
+  .room-code {
+    font-size: 28px;
+    letter-spacing: 0.14em;
+  }
+
+  #board-canvas {
+    height: min(116vw, 680px);
+    min-height: 430px;
+  }
+
+  .player-slot {
+    padding: 12px 14px;
+  }
+
+  .player-slot-actions {
+    gap: 6px;
+  }
+
+  .game-info,
+  .status-text {
+    margin-top: 12px;
+    padding: 14px;
   }
 }

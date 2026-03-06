@@ -1593,20 +1593,6 @@ function drawGoMarkers(goState, metrics) {
   }
 }
 
-function drawGoCaption(metrics) {
-  const text =
-    app.mode === "editor"
-      ? "围棋地图编辑器：点击交叉点切换水潭"
-      : isNetworkLobby()
-        ? `围棋房间布阵：你当前执 ${sideLabel(GAME.GO, app.room.color)}`
-      : app.mode === "network"
-        ? `围棋网页对战：你执 ${sideLabel(GAME.GO, app.room.color)}`
-        : "围棋本地自我对弈";
-  ctx.fillStyle = "rgba(32, 24, 10, 0.78)";
-  ctx.font = `${Math.max(12, metrics.cell * 0.42)}px "Noto Sans SC", "PingFang SC", sans-serif`;
-  ctx.fillText(text, metrics.boardX + 10, metrics.boardY + 20);
-}
-
 function computeXqMetrics() {
   const width = app.viewWidth;
   const height = app.viewHeight;
@@ -1789,12 +1775,6 @@ function drawXqPiece(piece, x, y, metrics, selected) {
   ctx.font = `${Math.max(17, r * 0.92)}px "Noto Serif SC", "Songti SC", serif`;
   ctx.fillText(xqPieceText(piece), cx, cy + 1);
 
-  if (piece.upgraded && piece.team !== XQ_TEAM.NEUTRAL) {
-    ctx.font = `${Math.max(10, r * 0.36)}px "Noto Sans SC", sans-serif`;
-    ctx.fillStyle = "#fff4d0";
-    ctx.fillText("升", cx + r * 0.58, cy - r * 0.56);
-  }
-
   ctx.restore();
 }
 
@@ -1817,20 +1797,6 @@ function drawXqPieces(state, metrics) {
     ctx.arc(lx, ly, Math.max(4, metrics.cell * 0.11), 0, Math.PI * 2);
     ctx.fill();
   }
-}
-
-function drawXqCaption(metrics) {
-  const text =
-    app.mode === "editor"
-      ? "象棋地图编辑器：点击交叉点切换符"
-      : isNetworkLobby()
-        ? `象棋房间布阵：你当前执 ${sideLabel(GAME.XIANGQI, app.room.color)}`
-      : app.mode === "network"
-        ? `象棋网页对战：你执 ${sideLabel(GAME.XIANGQI, app.room.color)}`
-        : "象棋本地自我对弈";
-  ctx.fillStyle = "rgba(32, 24, 10, 0.78)";
-  ctx.font = `${Math.max(12, metrics.cell * 0.34)}px "Noto Sans SC", "PingFang SC", sans-serif`;
-  ctx.fillText(text, metrics.firstX - metrics.cell * 0.62, metrics.firstY - metrics.cell * 0.35);
 }
 
 function getRenderGoState() {
@@ -1861,7 +1827,6 @@ function render() {
     window.__codexMetrics = app.boardMetrics;
     drawXqBoard(metrics);
     if (state) drawXqPieces(state, metrics);
-    drawXqCaption(metrics);
     return;
   }
 
@@ -1876,7 +1841,6 @@ function render() {
     drawGoStones(goState, metrics);
     drawGoMarkers(goState, metrics);
   }
-  drawGoCaption(metrics);
 }
 
 function requestRender() {
